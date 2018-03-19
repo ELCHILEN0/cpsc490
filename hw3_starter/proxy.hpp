@@ -104,6 +104,70 @@ operator+(P1 const& p1, P2 const& p2){
     return {p1, p2};
 }
 
+// product_proxy
+template<typename P1, typename P2>
+class product_proxy{
+    P1 const& p1;
+    P2 const& p2;
+    public:
+    using type = typename std::common_type<
+        typename P1::type,
+        typename P2::type
+        >::type;
+    product_proxy(P1 const& p1, P2 const& p2):
+        p1{p1},
+        p2{p2}
+    {}
+
+    std::size_t size() const {
+        return std::min(p1.size(), p2.size());
+    }
+    type get(std::size_t pos) const {
+        return p1.get(pos) * p2.get(pos);
+    }
+};
+
+template<typename P1, typename P2>
+product_proxy<P1, P2>
+operator*(P1 const& p1, P2 const& p2){
+    return {p1, p2};
+}
+
+// pipe_proxy
+template<typename P1, typename P2>
+class pipe_proxy{
+    P1 const& p1;
+    P2 const& p2;
+    public:
+    using type = typename std::common_type<
+        typename P1::type,
+        typename P2::type
+        >::type;
+    pipe_proxy(P1 const& p1, P2 const& p2):
+        p1{p1},
+        p2{p2}
+    {}
+
+    std::size_t size() const {
+        return p1.size() + p2.size();
+    }
+    type get(std::size_t pos) const {
+        if (pos < p1.size())
+            return p1.get(pos);
+        else if (pos < p1.size() + p2.size())
+            return p2.get(pos - p1.size());
+
+        return 0;
+    }
+};
+
+template<typename P1, typename P2>
+pipe_proxy<P1, P2>
+operator|(P1 const& p1, P2 const& p2){
+    return {p1, p2};
+}
+
+
 /**
  * Takes a proxy and converts it to a vector. There's a
  * much more interesting polymorphic version of this that

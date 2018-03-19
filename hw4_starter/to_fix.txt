@@ -1,0 +1,12 @@
+Virtual Function logSetup() called from base class constructor.
+
+/**
+ * It is an interface class for widgets - widgets should inherit from it
+ * and implement its methods.
+ */
+
+ Therefore, since it should be defined as an interface, there should not be a constructor calling virtual functions.
+
+
+ * Shouldnt call write from constructor...
+ * fixed by calling superclass constructor

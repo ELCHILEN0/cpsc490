@@ -5,7 +5,7 @@
 using namespace proxy;
 
 // uncomment when you think your solution to part 2 works
-/*
+
 
 TEST_CASE("empty proxy case"){
     std::vector<int> a{1,2,3}, b{};
@@ -27,6 +27,4 @@ TEST_CASE("composite case"){
         make_vector((make_proxy(a)|make_proxy(b))+make_proxy(c))
         == std::vector<int>{2,3,4,6,7,8});
 }
-
-*/
 

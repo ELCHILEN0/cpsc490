@@ -46,10 +46,7 @@ public:
  */
 class Drawable{
 public:
-    Drawable(){
-        // perform any logging setup needed, called here to save typing 
-        logSetup();
-    }
+    virtual ~Drawable() = default;
 
     // draw the drawable using the given context
     virtual void draw(DrawContext&) = 0;
@@ -60,7 +57,6 @@ public:
         std::cerr << "init logging base Drawable\n";
     }
 };
-
 
 // --- IMPLEMENTATIONS
 
@@ -107,25 +103,27 @@ public:
     // should inherit the default constructor
 
     // initialise 
-    FairyStringDrawContext(std::string s){
-        // can't set private variables of base class in derived class
-        StringDrawContext::write(s);
-    }
+    FairyStringDrawContext(std::string s) : StringDrawContext(s)
+    { }
 
     // implement madness
     void write(char c){
         StringDrawContext::write("fairy");
         StringDrawContext::write(c);
     }
-    // no need to override newLine, as it delegates to write() anyway
+    // no need to override newLine, as it delegates to write() anywayå
 };
 
 
 class WidgetStack: public Drawable{
+private:
+    std::vector<std::unique_ptr<Drawable>> widgets;
 public:
     WidgetStack(std::vector<std::unique_ptr<Drawable>> widgets):
         widgets{std::move(widgets)}
-    {}
+    {
+        logSetup();
+    }
 
     // draw the widgets stacked vertically by separating them with newlines
     void draw(DrawContext& ctx){
@@ -136,19 +134,19 @@ public:
     }
 
     void logSetup(){
-        Drawable::logSetup();
         std::cerr << "setup WidgetStack\n";
     }
-
-private:
-    std::vector<std::unique_ptr<Drawable>> widgets;
 };
 
 class WidgetSet: public Drawable{
+private:
+    std::vector<std::unique_ptr<Drawable>> widgets;
 public:
-    WidgetSet(std::vector<std::unique_ptr<Drawable>> widgets_):
-        widgets{std::move(widgets_)}
-    {}
+    WidgetSet(std::vector<std::unique_ptr<Drawable>> widgets):
+        widgets{std::move(widgets)}
+    {
+        logSetup();
+    }
 
     // draw the widgets separated horizontally with spaces
     void draw(DrawContext& ctx){
@@ -159,27 +157,28 @@ public:
     }
 
     void logSetup(){
-        Drawable::logSetup();
         std::cerr << "setup WidgetSet\n";
     }
-
-private:
-    std::vector<std::unique_ptr<Drawable>> widgets;
 };
 
 // represents a single character
 class CharWidget: public Drawable{
 public:
-    CharWidget(char ch): ch{ch} {}
+    CharWidget(char ch): ch{ch} {
+        logSetup();
+    }
 
     void draw(DrawContext& ctx){
         ctx.write(ch);
     }
 
     void logSetup(){
-        Drawable::logSetup();
         std::cerr << "setup CharWidget\n";
     }
+
+    // ~CharWidget() {
+    //     std::cerr << "~CW" << std::endl;
+    // }
 private:
     char ch;
 };
@@ -201,13 +200,13 @@ int main(){
     widgets2.push_back(std::make_unique<CharWidget>('f'));
 
     std::vector<std::unique_ptr<Drawable>> widgets3;
-    widgets3.push_back(std::make_unique<WidgetStack>(std::move(widgets1)));
-    widgets3.push_back(std::make_unique<WidgetStack>(std::move(widgets2)));
+    widgets3.push_back(std::make_unique<WidgetSet>(std::move(widgets1)));
+    widgets3.push_back(std::make_unique<WidgetSet>(std::move(widgets2)));
     
-    WidgetSet wset(std::move(widgets3));
+    WidgetSet to_draw(std::move(widgets3));
 
-    wset.draw(s1);
-    wset.draw(s2);
+    to_draw.draw(s1);
+    to_draw.draw(s2);
 
     std::cout << s1.getResult() << "\n\n" << s2.getResult() << "\n";
 

@@ -5,7 +5,7 @@
 using namespace proxy;
 
 // uncomment once you think your solution to part 1 works
-/*
+
 TEST_CASE("simple product"){
     std::vector<float> a{1,2,3}, b{3,2,1};
     CHECK(
@@ -26,4 +26,4 @@ TEST_CASE("sum and product"){
         make_vector(make_proxy(a)+make_proxy(b)*make_proxy(c))
         == std::vector<float>{4*7+1, 5*8+2, 6*9+3});
 }
-*/
+
