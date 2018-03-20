@@ -1,16 +1,6 @@
-Virtual Function logSetup() called from base class constructor.
-
-/**
- * It is an interface class for widgets - widgets should inherit from it
- * and implement its methods.
- */
-
- Therefore, since it should be defined as an interface, there should not be a constructor calling virtual functions.
-
-
- * Shouldnt call write from constructor...
- * fixed by calling superclass constructor
-
+Virtual Function logSetup() called from base class constructor.  Thus despite being overwritten, on construction the only matching
+method that could be called was Drawable::logSetup() instead of any of its overwritten logSetup methods.  Thus classes inheriting from
+Drawable should invoke logSetup().
 
 Classes derived from the Drawable interface and the references to the widgets vectors are defined as the Drawable interface, 
 the destructors for the actual derived class are undefined from the point of view of the compiler.  Thus adding virtual to 
