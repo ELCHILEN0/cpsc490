@@ -62,8 +62,9 @@ public:
     template<class U>
     my_unique_ptr(my_unique_ptr<U>&& u) noexcept
     { 
-        p = std::move(u.p);
-        u.p = nullptr;
+        
+        p = std::move(u.release());
+        // u.p = nullptr;
     }
 
     template<class U> 
@@ -172,15 +173,13 @@ public:
 
     my_unique_ptr( my_unique_ptr&& u ) noexcept
     {
-        this->p = std::move(u.p);        
-        u.p = nullptr; 
+        this->p = std::move(u.release());        
     }
 
     template< class U, class E >
     my_unique_ptr( unique_ptr<U, E>&& u ) noexcept
     {
-        this->p = std::move(u.p);        
-        u.p = nullptr; 
+        this->p = std::move(u.release());        
     }
 
     
@@ -270,6 +269,8 @@ bool f(const Bar& bar)
     return true;
 }
 
+struct FooBar : Foo, Bar { };
+
 TEST_CASE("default constructor") {
     unique_ptr<int> i = unique_ptr<int>::unique_ptr();
     my_unique_ptr<int> j = my_unique_ptr<int>::my_unique_ptr();
@@ -312,13 +313,11 @@ TEST_CASE("move constructor") {
     CHECK(ptr_m1->ret == ptr_u1->ret);
     CHECK(ptr_m1->bar() == ptr_u1->bar());
 
-    // unique_ptr<Bar> ptr_u2 = unique_ptr<Bar>::unique_ptr(move(ptr_u1));
-    my_unique_ptr<Bar> ptr_m2 = my_unique_ptr<Bar>::my_unique_ptr(move(ptr_m1));
+    unique_ptr<FooBar> ptr_u2 = unique_ptr<FooBar>::unique_ptr(new FooBar);
+    my_unique_ptr<FooBar> ptr_m2 = my_unique_ptr<FooBar>::my_unique_ptr(new FooBar);
 
-    // CHECK(ptr_u2.get() != nullptr);
-    CHECK(ptr_m2.get() != nullptr);
-    // CHECK(ptr_m2->ret == ptr_u2->ret);
-    // CHECK(ptr_m2->foo() == ptr_u2->foo());
+    unique_ptr<Foo> ptr_u3 = unique_ptr<Foo>::unique_ptr(move(ptr_u2));
+    my_unique_ptr<Foo> ptr_m3 = my_unique_ptr<Foo>::my_unique_ptr(move(ptr_m2));
 }
 
 TEST_CASE("assignment") {
