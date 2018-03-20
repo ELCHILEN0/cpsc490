@@ -36,6 +36,7 @@
  */
 class DrawContext{
 public:
+    virtual ~DrawContext() = default;
     virtual void write(char c) = 0;
     virtual void newLine() = 0;
 };
@@ -107,11 +108,14 @@ public:
     { }
 
     // implement madness
-    void write(char c){
+    virtual void write(char c){
         StringDrawContext::write("fairy");
         StringDrawContext::write(c);
     }
-    // no need to override newLine, as it delegates to write() anywayå
+
+    void newLine() {
+        write('\n');
+    }
 };
 
 
@@ -175,10 +179,6 @@ public:
     void logSetup(){
         std::cerr << "setup CharWidget\n";
     }
-
-    // ~CharWidget() {
-    //     std::cerr << "~CW" << std::endl;
-    // }
 private:
     char ch;
 };
@@ -200,15 +200,16 @@ int main(){
     widgets2.push_back(std::make_unique<CharWidget>('f'));
 
     std::vector<std::unique_ptr<Drawable>> widgets3;
-    widgets3.push_back(std::make_unique<WidgetSet>(std::move(widgets1)));
+    widgets3.push_back(std::make_unique<WidgetStack>(std::move(widgets1)));
     widgets3.push_back(std::make_unique<WidgetSet>(std::move(widgets2)));
     
     WidgetSet to_draw(std::move(widgets3));
 
+    FairyStringDrawContext s3 = s2;
     to_draw.draw(s1);
-    to_draw.draw(s2);
+    to_draw.draw(s3);
 
-    std::cout << s1.getResult() << "\n\n" << s2.getResult() << "\n";
+    std::cout << s1.getResult() << "\n\n" << s3.getResult() << "\n";
 
     return 0;
 }

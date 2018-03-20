@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 project(hw4 VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_DEFAULT 14)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 add_library(tests_main tests_main.cpp)
 

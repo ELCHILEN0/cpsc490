@@ -10,3 +10,11 @@ Virtual Function logSetup() called from base class constructor.
 
  * Shouldnt call write from constructor...
  * fixed by calling superclass constructor
+
+
+Classes derived from the Drawable interface and the references to the widgets vectors are defined as the Drawable interface, 
+the destructors for the actual derived class are undefined from the point of view of the compiler.  Thus adding virtual to 
+the destructor allows it to run for polymorphic classes.
+
+FairyStringDrawContext::newLine() was calling the Base StringDrawContext::newLine() which calls its respective write() method 
+instead of the overloaded FairyStringDrawContext::write() method.
