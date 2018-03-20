@@ -177,7 +177,7 @@ public:
     }
 
     template< class U, class E >
-    my_unique_ptr( unique_ptr<U, E>&& u ) noexcept
+    my_unique_ptr( unique_ptr<U[], E>&& u ) noexcept
     {
         this->p = std::move(u.release());        
     }
@@ -217,22 +217,13 @@ public:
     // //     U is the same type as pointer, or
     // //     pointer is the same type as element_type* and U is a pointer type V* such that V(*)[] is convertible to element_type(*)[].
     
+    template< class U > 
+    void reset( U ) noexcept = delete;
 
-    // template< class U > 
-    // void reset( U ) = delete;
-
-    // template< class U > 
-    // void reset( U ) noexcept;
-
-    // void reset( std::nullptr_t p ) noexcept
-    // {
-    //     reset(new T[0]);
-    // }
-
-    // void reset( std::nullptr_t p = nullptr ) noexcept
-    // {
-    //     reset(new T[0]);
-    // }
+    void reset( std::nullptr_t p = nullptr ) noexcept
+    {
+        reset(p);
+    }
 
     T& operator[](size_t i) const {
         return this->get()[i];
