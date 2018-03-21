@@ -1,5 +1,7 @@
-#include "catch.hpp"
+#include <type_traits>
 #include <memory>
+
+#include "catch.hpp"
 
 using namespace std;
 
@@ -21,6 +23,9 @@ using namespace std;
  */
 template<typename T>
 class my_unique_ptr{
+private:
+    T *ptr;
+
 public:
     /**
      * Constructor.
@@ -32,41 +37,32 @@ public:
 
     ~my_unique_ptr()
     {
-        delete p;
+        reset();
     }
 
-    // 1)
     constexpr my_unique_ptr() noexcept
-    { 
-        p = nullptr;
-    }
+    : ptr(nullptr)
+    { }
     constexpr my_unique_ptr( nullptr_t ) noexcept
-    { 
-        p = nullptr;
-    }
+    : ptr(nullptr)
+    { }
 
-    // 2)
     explicit my_unique_ptr( T* p ) noexcept 
-    { 
-        this->p = p;
-    }
+    : ptr(p)
+    { }
 
-    // 5)
-    my_unique_ptr( my_unique_ptr&& u ) noexcept
-    {
-        p = std::move(u.p);        
-        u.p = nullptr;        
-    }
+    my_unique_ptr( my_unique_ptr&& r ) noexcept
+    : ptr(r.release())
+    { }
 
-    // 6)
     template<class U>
-    my_unique_ptr(my_unique_ptr<U>&& u) noexcept
-    { 
-        p = std::move(u.release());
-    }
-
-    template<class U> 
-    my_unique_ptr( const U& u ) = delete;
+    my_unique_ptr(my_unique_ptr<U>&& r,
+                    typename std::enable_if<
+                        !is_array<U>::value &&
+                        is_convertible<U, T>::value,
+                    bool>::type = true) noexcept
+    : ptr(r.release())
+    { }
 
     /**
      * Do not implement get_deleter(), as we do not support them.
@@ -74,46 +70,52 @@ public:
 		
     my_unique_ptr& operator=( my_unique_ptr&& r ) noexcept
     {
-        this->reset(r.release());
+        reset(r.release());
         return *this;
     }
 
-    template< class U>
-    my_unique_ptr& operator=( my_unique_ptr<U>&& r ) noexcept 
+    template<class U>
+    typename std::enable_if<
+        !is_array<U>::value &&
+        is_convertible<U, T>::value,
+    my_unique_ptr&>::type 
+    operator=( my_unique_ptr<U>&& r ) noexcept 
     {
-        this->reset(r.release());
+        reset(r.release());
         return *this;
     }
 
     my_unique_ptr& operator=( nullptr_t ) noexcept
     {
-        this->reset(nullptr);
+        reset();
         return *this;
     }
 
     T* release() noexcept
     { 
-        T* old_ptr = p;
-        p = nullptr;
+        T* old_ptr = ptr;
+        ptr = nullptr;
         return old_ptr;
     }
 
-    void reset( T* ptr = 0 ) noexcept 
+    void reset( T* p = nullptr ) noexcept 
     {
-        T* old_ptr = p;
-        p = ptr;
-        delete old_ptr;
+        T* old_ptr = ptr;
+        ptr = p;
+        if (old_ptr)
+            delete old_ptr;
     }
 
     void swap(my_unique_ptr& other) noexcept
     {
-        std::swap(p, other.p);
+        // p.swap(other.p);
+        std::swap(ptr, other.ptr);
     }
 
     T* get() const noexcept
     {
-        if (p)
-            return p;
+        if (ptr)
+            return ptr;
 
         return nullptr;
     }
@@ -123,19 +125,15 @@ public:
         return get() != nullptr;
     }
 
-    typename add_lvalue_reference<T>::type operator*() const {
-        // if (p)
-        //     return *p;
-        // return std::declval<T>();
-        return *p;
+    typename add_lvalue_reference<T>::type operator*() const 
+    {
+        return *ptr;
     }
 
-    T* operator->() const noexcept {
-        return p;
+    T* operator->() const noexcept
+    {
+        return ptr;
     }
-
-protected:
-    T* p;
 };
 
 /**
@@ -145,84 +143,119 @@ protected:
 template<typename T>
 class my_unique_ptr<T[]> : my_unique_ptr<T>
 {
+private:
+    T *ptr;
+
 public:
-    // 1)
+    ~my_unique_ptr()
+    {
+        reset();
+    }
+
     constexpr my_unique_ptr() noexcept
-    { 
-        this->p = nullptr;
-    }
-
+    : ptr(nullptr)
+    { }
     constexpr my_unique_ptr( nullptr_t ) noexcept
-    { 
-        this->p = nullptr;
-    }
+    : ptr(nullptr)
+    { }
 
-    // 2) TODO: T(*p)[]?
-    explicit my_unique_ptr( T *p ) noexcept
-    { 
-        this->p = p;
-    }
+    explicit my_unique_ptr( T* p ) noexcept 
+    : ptr(p)
+    { }
 
-    template<class U> explicit my_unique_ptr( U p ) noexcept
-    {
-        this->p = p;
-    }
+    template <class U>
+    explicit my_unique_ptr(U p,
+                    typename std::enable_if<
+                        is_convertible<U, T>::value,
+                    bool>::type = true) noexcept
+    : ptr(p)
+    { }
 
-    my_unique_ptr( my_unique_ptr&& u ) noexcept
-    {
-        this->p = std::move(u.release());        
-    }
+    my_unique_ptr( my_unique_ptr&& r ) noexcept
+    : ptr(r.release())
+    { }
 
-    template< class U, class E >
-    my_unique_ptr( unique_ptr<U, E>&& u ) noexcept
-    {
-        this->p = std::move(u.release());        
-    }
+    template<class U>
+    my_unique_ptr(my_unique_ptr<U>&& r,
+                    typename std::enable_if<
+                        is_array<U>::value &&
+                        is_convertible<U, T>::value,
+                    bool>::type = true) noexcept
+    : ptr(r.release())
+    { }
 
-    
-    // The template version of this assignment operator in the specialization for arrays, std::unique_ptr<T[]> behaves the same as in the primary template, except that will only participate in overload resolution if all of the following is true:
-    // * U is an array type
-    // * pointer is the same type as element_type*
-    // * unique_ptr<U,E>::pointer is the same type as unique_ptr<U,E>::element_type*
-    // * unique_ptr<U,E>::element_type(*)[] is convertible to element_type(*)[]
-    
     my_unique_ptr& operator=( my_unique_ptr&& r ) noexcept
     {
-        this->reset(r.release());        
+        reset(r.release());
+        return *this;
     }
 
-    template< class U >
-    my_unique_ptr& operator=( my_unique_ptr<U>&& r ) noexcept
+    template<class U>
+    typename enable_if<
+        is_array<U>::value &&
+        is_convertible<U, T>::value,
+    my_unique_ptr&>::type
+    operator=( my_unique_ptr<U>&& r ) noexcept
     {
-        this->reset(r.release());
+        reset(r.release());
+        return *this;
     }
 
     my_unique_ptr& operator=( nullptr_t ) noexcept
     {
-        this->reset();
+        reset();
+        return *this;
     }
 
-    void reset( T* ptr = nullptr ) noexcept {
-        T* old_ptr = this->p;
-        this->p = ptr;
-        delete old_ptr;
-    }
-    
-    // // 3) In the specialization for dynamic arrays, std::unique_ptr<T[]>, this template member is provided to prevent using reset() with a pointer to derived (which would result in undefined behavior with arrays).
-    // // 3) Behaves the same as the reset member of the primary template, except that it will only participate in overload resolution if either
-    // //     U is the same type as pointer, or
-    // //     pointer is the same type as element_type* and U is a pointer type V* such that V(*)[] is convertible to element_type(*)[].
-    
-    template< class U > 
-    void reset( U ) noexcept = delete;
+    template<class U> 
+    my_unique_ptr( const U& u ) = delete;
 
-    void reset( std::nullptr_t p = nullptr ) noexcept
+    T* get() const noexcept
     {
-        reset(p);
+        return ptr;
+    }
+
+    explicit operator bool() const noexcept
+    {
+        return ptr != nullptr;
+    }
+
+    T* release() noexcept
+    {
+        T* old_ptr = ptr;
+        ptr = nullptr;
+        return old_ptr;
+    }
+
+    template<class U>
+    typename enable_if<
+        is_array<U>::value &&   // TODO: correct?
+        is_convertible<U, T>::value,
+    void>::type
+    reset(U p) noexcept
+    {
+        T* old_ptr = ptr;
+        ptr = p;
+        if (old_ptr)
+            delete old_ptr;
+    }
+
+    void reset(nullptr_t = nullptr) noexcept
+    {
+        T* old_ptr = ptr;
+        ptr = nullptr;
+        if (old_ptr)
+            delete old_ptr;
+    }
+
+    void swap(my_unique_ptr& other) noexcept
+    {
+        // p.swap(other.p);
+        std::swap(ptr, other.ptr);
     }
 
     T& operator[](size_t i) const {
-        return this->get()[i];
+        return ptr[i];
     }
 };
 
@@ -232,13 +265,21 @@ public:
  * is interesting to do so if you want to go above and beyond.
  */
 
+/*
+
+template<class T, class... Args> unique_ptr<T> make_unique(Args&&... args);     // C++14
+template<class T>                unique_ptr<T> make_unique(size_t n);           // C++14
+template<class T, class... Args> unspecified   make_unique(Args&&...) = delete; // C++14, T == U[N]
+
+*/
+
 /**
  * You are not required to implement operator<< or std::hash.
  */
 
 struct Foo {
-    bool ret = true;
-    bool bar() { return ret; }
+    bool val = true;
+    bool bar() { return val; }
 };
 
 bool f(const Foo& foo)
@@ -247,8 +288,8 @@ bool f(const Foo& foo)
 }
 
 struct Bar {
-    bool ret = false;
-    bool foo() { return ret; }
+    bool val = false;
+    bool foo() { return val; }
 };
 
 bool f(const Bar& bar)
@@ -259,81 +300,88 @@ bool f(const Bar& bar)
 struct FooBar : Foo, Bar { };
 
 TEST_CASE("default constructor") {
-    unique_ptr<int> i = unique_ptr<int>::unique_ptr();
-    my_unique_ptr<int> j = my_unique_ptr<int>::my_unique_ptr();
+    unique_ptr<int> ptr_u = unique_ptr<int>::unique_ptr();
+    my_unique_ptr<int> ptr_m = my_unique_ptr<int>::my_unique_ptr();
 
-    *i;
-    *j;
+    CHECK(ptr_u.get() == nullptr);
+    CHECK(ptr_m.get() == nullptr);
 }
 
 TEST_CASE("nullptr constructor") {
-    unique_ptr<int> i = unique_ptr<int>::unique_ptr(nullptr);
-    my_unique_ptr<int> j = my_unique_ptr<int>::my_unique_ptr(nullptr);
+    unique_ptr<int> ptr_u(nullptr);
+    my_unique_ptr<int> ptr_m(nullptr);
 
-    *i;
-    *j;
+    CHECK(ptr_u.get() == nullptr);
+    CHECK(ptr_m.get() == nullptr);
 }
 
 TEST_CASE("new constructor") {
     unique_ptr<Foo> ptr_u(new Foo);
     my_unique_ptr<Foo> ptr_m(new Foo);
 
-    CHECK(ptr_u->bar());
-    CHECK(ptr_m->bar());
+    CHECK(ptr_u.get() != nullptr);
+    CHECK(ptr_m.get() != nullptr);
 
-    CHECK(f(*ptr_u));
-    CHECK(f(*ptr_m));
+    CHECK(ptr_u->val == ptr_m->val);
 }
 
-TEST_CASE("move constructor") {
+TEST_CASE("move constructor<T>") {
     unique_ptr<Foo> ptr_u(new Foo);
     my_unique_ptr<Foo> ptr_m(new Foo);
 
-    ptr_u->ret = false;
-    ptr_m->ret = false;
+    ptr_u->val = false;
+    ptr_m->val = false;
 
-    unique_ptr<Foo> ptr_u1 = unique_ptr<Foo>::unique_ptr(move(ptr_u));
-    my_unique_ptr<Foo> ptr_m1 = my_unique_ptr<Foo>::my_unique_ptr(move(ptr_m));
+    unique_ptr<Foo> ptr_u1(move(ptr_u));
+    my_unique_ptr<Foo> ptr_m1(move(ptr_m));
 
+    CHECK(ptr_u.get() == nullptr);
+    CHECK(ptr_m.get() == nullptr);
     CHECK(ptr_u1.get() != nullptr);
     CHECK(ptr_m1.get() != nullptr);
-    CHECK(ptr_m1->ret == ptr_u1->ret);
-    CHECK(ptr_m1->bar() == ptr_u1->bar());
 
-    unique_ptr<FooBar> ptr_u2 = unique_ptr<FooBar>::unique_ptr(new FooBar);
-    my_unique_ptr<FooBar> ptr_m2 = my_unique_ptr<FooBar>::my_unique_ptr(new FooBar);
-
-    unique_ptr<Foo> ptr_u3 = unique_ptr<Foo>::unique_ptr(move(ptr_u2));
-    my_unique_ptr<Foo> ptr_m3 = my_unique_ptr<Foo>::my_unique_ptr(move(ptr_m2));
+    CHECK(ptr_u1->val == ptr_m1->val);
 }
 
-TEST_CASE("assignment") {
+TEST_CASE("move constructor<U>") {
+    unique_ptr<FooBar> ptr_u(new FooBar);
+    my_unique_ptr<FooBar> ptr_m(new FooBar);
+
+    unique_ptr<Foo> ptr_u1(move(ptr_u));
+    my_unique_ptr<Foo> ptr_m1(move(ptr_m));
+
+    CHECK(ptr_u.get() == ptr_m.get());
+}
+
+TEST_CASE("single-object operators") {
     unique_ptr<Foo> ptr_u(new Foo);
     my_unique_ptr<Foo> ptr_m(new Foo);
 
-    ptr_u->ret = false;
-    ptr_m->ret = false;
+    CHECK(ptr_u->val == ptr_m->val);
 
-    unique_ptr<Foo> ptr_u1 = std::move(ptr_u);
-    my_unique_ptr<Foo> ptr_m1 = std::move(ptr_m);
+    ptr_u->val = false;
+    ptr_m->val = false;
 
-    CHECK(ptr_m1->bar() == ptr_u1->bar());
+    CHECK(ptr_u->val == ptr_m->val);
 
-    CHECK(ptr_m.get() == ptr_u.get());
-    CHECK(ptr_m1.get()->ret == ptr_u1.get()->ret);
+    // TODO: *
 
-    ptr_u1 = nullptr;
-    ptr_m1 = nullptr;
+    if (!ptr_u || !ptr_m)
+        CHECK(false);
 
-    CHECK(ptr_m1.get() == ptr_u1.get());
+    ptr_u.release();
+    ptr_m.release();
+
+    if (ptr_u || ptr_m)
+        CHECK(false);
 }
 
 TEST_CASE("swap") {
     unique_ptr<Foo> ptr_u(new Foo);
     my_unique_ptr<Foo> ptr_m(new Foo);
 
-    ptr_u->ret = false;
-    ptr_m->ret = false;
+    ptr_u->val = false;
+    ptr_m->val = false;
 
     unique_ptr<Foo> ptr_u1(new Foo);
     my_unique_ptr<Foo> ptr_m1(new Foo);
@@ -341,16 +389,37 @@ TEST_CASE("swap") {
     ptr_u.swap(ptr_u1);
     ptr_m.swap(ptr_m1);
 
-    CHECK(ptr_u->ret == ptr_m->ret);
-    CHECK(ptr_u1->ret == ptr_m1->ret);
+    CHECK(ptr_u->val == ptr_m->val);
+    CHECK(ptr_u1->val == ptr_m1->val);
+}
+
+TEST_CASE("assignment") {
+    unique_ptr<Foo> ptr_u(new Foo);
+    my_unique_ptr<Foo> ptr_m(new Foo);
+
+    ptr_u->val = false;
+    ptr_m->val = false;
+
+    unique_ptr<Foo> ptr_u1 = std::move(ptr_u);
+    my_unique_ptr<Foo> ptr_m1 = std::move(ptr_m);
+
+    CHECK(ptr_m1->bar() == ptr_u1->bar());
+
+    CHECK(ptr_m.get() == ptr_u.get());
+    CHECK(ptr_m1.get()->val == ptr_u1.get()->val);
+
+    ptr_u1 = nullptr;
+    ptr_m1 = nullptr;
+
+    CHECK(ptr_m1.get() == ptr_u1.get());
 }
 
 TEST_CASE("reset") {
     unique_ptr<Foo> ptr_u(new Foo);
     my_unique_ptr<Foo> ptr_m(new Foo);
 
-    ptr_u->ret = false;
-    ptr_m->ret = false;
+    ptr_u->val = false;
+    ptr_m->val = false;
 
     ptr_u.reset();
     ptr_m.reset();
@@ -367,5 +436,15 @@ TEST_CASE("array") {
 
     CHECK(ptr_u[0].bar() == ptr_m[0].bar());
     CHECK(ptr_u[1].bar() == ptr_m[1].bar());
+
+    unique_ptr<Foo[]> ptr_u1(nullptr); // Verify...
+    my_unique_ptr<Foo[]> ptr_m1(nullptr); // Verify... should be Foo[]
+
+
+    // unique_ptr<Foo[]> ptr_u2(new FooBar[2]);
+    // my_unique_ptr<Foo[]> ptr_m2(new FooBar[2]);
+
+    // ptr_m2[0];
+
     // TODO: How to check? both will fault
 }
