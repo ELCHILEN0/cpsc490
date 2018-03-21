@@ -382,13 +382,16 @@ bool operator>=(nullptr_t, const my_unique_ptr<T>& y)
     return !(nullptr < y);
 }
 
-/*
+template<class T, class... Args> 
+my_unique_ptr<T> make_my_unique(Args&&... args)
+{
+    return my_unique_ptr<T>(new T(std::forward(args)...));
+}
 
-template<class T, class... Args> unique_ptr<T> make_unique(Args&&... args);     // C++14
-template<class T>                unique_ptr<T> make_unique(size_t n);           // C++14
-template<class T, class... Args> unspecified   make_unique(Args&&...) = delete; // C++14, T == U[N]
-
-*/
+template<class T>                unique_ptr<T> make_unique(size_t n)
+{
+    return my_unique_ptr<T>(new T[n]);    
+}
 
 /**
  * You are not required to implement operator<< or std::hash.
