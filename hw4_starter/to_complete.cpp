@@ -27,6 +27,8 @@ private:
     T *ptr;
 
 public:
+    // typedef typename T  pointer;
+    typedef T   element_type;
     /**
      * Constructor.
      *
@@ -147,6 +149,9 @@ private:
     T *ptr;
 
 public:
+    // typedef typename T  pointer;
+    typedef T element_type;
+
     ~my_unique_ptr()
     {
         reset();
@@ -166,6 +171,7 @@ public:
     template <class U>
     explicit my_unique_ptr(U p,
                     typename std::enable_if<
+                        is_array<U>::value &&                    
                         is_convertible<U, T>::value,
                     bool>::type = true) noexcept
     : ptr(p)
@@ -229,7 +235,7 @@ public:
 
     template<class U>
     typename enable_if<
-        is_array<U>::value &&   // TODO: correct?
+        is_array<U>::value &&
         is_convertible<U, T>::value,
     void>::type
     reset(U p) noexcept
@@ -265,6 +271,117 @@ public:
  * is interesting to do so if you want to go above and beyond.
  */
 
+template<class T1, class T2>
+bool operator==(const my_unique_ptr<T1>& x, const my_unique_ptr<T2>& y)
+{
+    return x.get() == y.get();
+}
+
+template<class T1, class T2>
+bool operator!=(const my_unique_ptr<T1>& x, const my_unique_ptr<T2>& y)
+{
+    return x.get() != y.get();
+}
+
+template<class T1, class T2>
+bool operator<(const my_unique_ptr<T1>& x, const my_unique_ptr<T2>& y)
+{
+    return std::less<std::common_type<
+                typename my_unique_ptr<T1>::pointer, 
+                typename my_unique_ptr<T2>::pointer
+            >>::type(x.get(), y.get());
+}
+
+template<class T1, class T2>
+bool operator<=(const my_unique_ptr<T1>& x, const my_unique_ptr<T2>& y)
+{
+    return !(y < x);
+}
+
+template<class T1, class T2>
+bool operator>(const my_unique_ptr<T1>& x, const my_unique_ptr<T2>& y)
+{
+    return y < x;
+}
+
+template<class T1, class T2>
+bool operator>=(const my_unique_ptr<T1>& x, const my_unique_ptr<T2>& y)
+{
+    return !(x < y);
+}
+
+template <class T>
+bool operator==(const my_unique_ptr<T>& x, nullptr_t) noexcept
+{
+    return !x;
+}
+
+template <class T>
+bool operator==(nullptr_t, const my_unique_ptr<T>& x) noexcept
+{
+    return !x;
+}
+
+template <class T>
+bool operator!=(const my_unique_ptr<T>& x, nullptr_t) noexcept
+{
+    return (bool)x;
+}
+
+template <class T>
+bool operator!=(nullptr_t, const my_unique_ptr<T>& x) noexcept
+{
+    return (bool)x;
+}
+
+template <class T>
+bool operator<(const my_unique_ptr<T>& x, nullptr_t)
+{
+    return std::less<typename my_unique_ptr<T>::element_type>(x.get(), nullptr);
+}
+
+template <class T>
+bool operator<(nullptr_t, const my_unique_ptr<T>& y)
+{
+    return std::less<typename my_unique_ptr<T>::element_type>(nullptr, y.get());    
+}
+
+template <class T>
+bool operator<=(const my_unique_ptr<T>& x, nullptr_t)
+{
+    return !(nullptr < x);
+}
+
+template <class T>
+bool operator<=(nullptr_t, const my_unique_ptr<T>& y)
+{
+    return !(y < nullptr);
+}
+
+template <class T>
+bool operator>(const my_unique_ptr<T>& x, nullptr_t)
+{
+    return nullptr < x;
+}
+
+template <class T>
+bool operator>(nullptr_t, const my_unique_ptr<T>& y)
+{
+    return y < nullptr;
+}
+
+template <class T>
+bool operator>=(const my_unique_ptr<T>& x, nullptr_t)
+{
+    return !(x < nullptr);    
+}
+
+template <class T>
+bool operator>=(nullptr_t, const my_unique_ptr<T>& y)
+{
+    return !(nullptr < y);
+}
+
 /*
 
 template<class T, class... Args> unique_ptr<T> make_unique(Args&&... args);     // C++14
@@ -296,7 +413,8 @@ bool f(const Bar& bar)
     return true;
 }
 
-struct FooBar : Foo, Bar { };
+struct FooBar : Foo, Bar
+{ };
 
 TEST_CASE("default constructor") {
     unique_ptr<int> ptr_u = unique_ptr<int>::unique_ptr();
@@ -450,23 +568,23 @@ TEST_CASE("reset") {
 }
 
 TEST_CASE("array") {
-    // unique_ptr<Foo[]> ptr_u = unique_ptr<Foo[]>();
-    // my_unique_ptr<Foo[]> ptr_m = my_unique_ptr<Foo[]>();
+    unique_ptr<FooBar[]> ptr_u(new FooBar[2]);
+    my_unique_ptr<FooBar[]> ptr_m(new FooBar[2]);
 
-    unique_ptr<Foo[]> ptr_u(new Foo[2]);
-    my_unique_ptr<Foo[]> ptr_m(new Foo[2]);
+    CHECK(ptr_u[0].val == ptr_m[0].val);
+    CHECK(ptr_u[1].val == ptr_m[1].val);
 
-    CHECK(ptr_u[0].bar() == ptr_m[0].bar());
-    CHECK(ptr_u[1].bar() == ptr_m[1].bar());
+    unique_ptr<FooBar[]> ptr_u1(std::move(ptr_u));
+    my_unique_ptr<FooBar[]> ptr_m1(std::move(ptr_m)); 
 
-    unique_ptr<Foo[]> ptr_u1(nullptr); // Verify...
-    my_unique_ptr<Foo[]> ptr_m1(nullptr); // Verify... should be Foo[]
+    CHECK(ptr_u.get() == ptr_m.get());
+    CHECK(ptr_u1[0].val == ptr_m1[0].val);
+    CHECK(ptr_u1[1].val == ptr_m1[1].val);
 
+    unique_ptr<FooBar[]> ptr_u2(nullptr);
+    unique_ptr<FooBar[]> ptr_m2(nullptr);
 
-    // unique_ptr<Foo[]> ptr_u2(new FooBar[2]);
-    // my_unique_ptr<Foo[]> ptr_m2(new FooBar[2]);
+    CHECK(ptr_u2.get() == ptr_m2.get());    
 
-    // ptr_m2[0];
-
-    // TODO: How to check? both will fault
+    // TODO: How to check the assignable case?
 }
