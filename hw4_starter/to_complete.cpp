@@ -62,9 +62,7 @@ public:
     template<class U>
     my_unique_ptr(my_unique_ptr<U>&& u) noexcept
     { 
-        
         p = std::move(u.release());
-        // u.p = nullptr;
     }
 
     template<class U> 
@@ -167,8 +165,7 @@ public:
 
     template<class U> explicit my_unique_ptr( U p ) noexcept
     {
-        // TODO:
-
+        this->p = p;
     }
 
     my_unique_ptr( my_unique_ptr&& u ) noexcept
@@ -177,7 +174,7 @@ public:
     }
 
     template< class U, class E >
-    my_unique_ptr( unique_ptr<U[], E>&& u ) noexcept
+    my_unique_ptr( unique_ptr<U, E>&& u ) noexcept
     {
         this->p = std::move(u.release());        
     }
@@ -191,26 +188,25 @@ public:
     
     my_unique_ptr& operator=( my_unique_ptr&& r ) noexcept
     {
-        
+        this->reset(r.release());        
     }
 
-    // template< class U, class E >
-    // my_unique_ptr& operator=( my_unique_ptr<U,E>&& r ) noexcept
-    // {
+    template< class U >
+    my_unique_ptr& operator=( my_unique_ptr<U>&& r ) noexcept
+    {
+        this->reset(r.release());
+    }
 
-    // }
+    my_unique_ptr& operator=( nullptr_t ) noexcept
+    {
+        this->reset();
+    }
 
-    // my_unique_ptr& operator=( nullptr_t ) noexcept
-    // {
-
-    // }
-
-    // void reset( T* ptr = new T[0] ) noexcept {
-    //     T* old_ptr = p;
-    //     p = ptr;
-    //     delete old_ptr;
-    // }
-
+    void reset( T* ptr = nullptr ) noexcept {
+        T* old_ptr = this->p;
+        this->p = ptr;
+        delete old_ptr;
+    }
     
     // // 3) In the specialization for dynamic arrays, std::unique_ptr<T[]>, this template member is provided to prevent using reset() with a pointer to derived (which would result in undefined behavior with arrays).
     // // 3) Behaves the same as the reset member of the primary template, except that it will only participate in overload resolution if either
