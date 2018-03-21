@@ -277,7 +277,8 @@ template<class T, class... Args> unspecified   make_unique(Args&&...) = delete; 
  * You are not required to implement operator<< or std::hash.
  */
 
-struct Foo {
+struct Foo 
+{
     bool val = true;
     bool bar() { return val; }
 };
@@ -287,10 +288,8 @@ bool f(const Foo& foo)
     return true;
 }
 
-struct Bar {
-    bool val = false;
-    bool foo() { return val; }
-};
+struct Bar
+{ };
 
 bool f(const Bar& bar)
 {
@@ -394,37 +393,60 @@ TEST_CASE("swap") {
 }
 
 TEST_CASE("assignment") {
-    unique_ptr<Foo> ptr_u(new Foo);
-    my_unique_ptr<Foo> ptr_m(new Foo);
+    unique_ptr<FooBar> ptr_u(new FooBar);
+    my_unique_ptr<FooBar> ptr_m(new FooBar);
 
     ptr_u->val = false;
     ptr_m->val = false;
 
-    unique_ptr<Foo> ptr_u1 = std::move(ptr_u);
-    my_unique_ptr<Foo> ptr_m1 = std::move(ptr_m);
-
-    CHECK(ptr_m1->bar() == ptr_u1->bar());
+    unique_ptr<FooBar> ptr_u1 = std::move(ptr_u);
+    my_unique_ptr<FooBar> ptr_m1 = std::move(ptr_m);
 
     CHECK(ptr_m.get() == ptr_u.get());
     CHECK(ptr_m1.get()->val == ptr_u1.get()->val);
 
-    ptr_u1 = nullptr;
-    ptr_m1 = nullptr;
+    unique_ptr<Foo> ptr_u2 = std::move(ptr_u1);
+    my_unique_ptr<Foo> ptr_m2 = std::move(ptr_m1);
 
     CHECK(ptr_m1.get() == ptr_u1.get());
+    CHECK(ptr_m2.get()->val == ptr_u2.get()->val);    
+
+    ptr_u2 = nullptr;
+    ptr_m2 = nullptr;
+
+    CHECK(ptr_m2.get() == ptr_u2.get());
+}
+
+TEST_CASE("release") {
+    Foo *f1 = new Foo();
+    Foo *f2 = new Foo();
+
+    unique_ptr<Foo> ptr_u(f1);
+    my_unique_ptr<Foo> ptr_m(f2);
+
+    CHECK(ptr_u.get() == f1);
+    CHECK(ptr_m.get() == f2);
+
+    Foo *r1 = ptr_u.release();
+    Foo *r2 = ptr_m.release();
+
+    CHECK(r1 == f1);
+    CHECK(r2 == f2);
+
+    CHECK(ptr_u.get() == ptr_m.get());
 }
 
 TEST_CASE("reset") {
     unique_ptr<Foo> ptr_u(new Foo);
     my_unique_ptr<Foo> ptr_m(new Foo);
 
-    ptr_u->val = false;
-    ptr_m->val = false;
+    CHECK(ptr_u.get() != nullptr);
+    CHECK(ptr_m.get() != nullptr);
 
     ptr_u.reset();
     ptr_m.reset();
 
-    // TODO: How to check? both will fault
+    CHECK(ptr_m.get() == ptr_u.get());
 }
 
 TEST_CASE("array") {
